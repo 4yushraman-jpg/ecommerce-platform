@@ -1,0 +1,44 @@
+services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: development
+      HTTP_PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: authdb
+      JWT_SECRET: super-secret-key
+      JWT_ACCESS_TTL_MINUTES: 15
+      JWT_REFRESH_TTL_DAYS: 7
+      REQUEST_TIMEOUT_SECONDS: 15
+      CORS_ALLOWED_ORIGIN: "*"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:16
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: authdb
+
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d authdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

@@ -1,0 +1,217 @@
+openapi: 3.0.3
+info:
+  title: Product Service API
+  version: 1.0.0
+  description: Product catalog CRUD APIs with cursor pagination and Redis cache-aside reads.
+servers:
+  - url: http://localhost:8081
+tags:
+  - name: Products
+paths:
+  /api/v1/products:
+    post:
+      tags: [Products]
+      summary: Create product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+            example:
+              name: Mechanical Keyboard
+              description: Hot-swappable 75% keyboard
+              price: 129.99
+              inventory_count: 42
+              category: electronics
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      tags: [Products]
+      summary: List products with cursor pagination
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: sort
+          schema: { type: string, enum: [asc, desc], default: desc }
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        '200':
+          description: Product list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListProductsSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Products]
+      summary: Update product partially
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductRequest'
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Products]
+      summary: Delete product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Product deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageSuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Product not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    CreateProductRequest:
+      type: object
+      required: [name, price, inventory_count, category]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        price: { type: number, format: double }
+        inventory_count: { type: integer }
+        category: { type: string }
+    UpdateProductRequest:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        price: { type: number, format: double }
+        inventory_count: { type: integer }
+        category: { type: string }
+    Product:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        price: { type: number, format: double }
+        inventory_count: { type: integer }
+        category: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ListProducts:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Product' }
+        next_cursor:
+          type: string
+    Message:
+      type: object
+      properties:
+        message: { type: string }
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, enum: [false] }
+        error:
+          type: object
+          properties:
+            message: { type: string }
+    ProductSuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: '#/components/schemas/Product' }
+    ListProductsSuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: '#/components/schemas/ListProducts' }
+    MessageSuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean, enum: [true] }
+        data: { $ref: '#/components/schemas/Message' }

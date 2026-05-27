@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: Distributed E-Commerce Auth Service API
+  version: 1.0.0
+  description: |
+    Authentication and session lifecycle APIs for the e-commerce platform.
+    The service issues short-lived JWT access tokens and persisted refresh tokens.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://auth.example.com
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentication and token lifecycle operations
+  - name: Users
+    description: Authenticated user profile operations
+
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              email: alice@example.com
+              password: SuperSecret123
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+              example:
+                success: true
+                data:
+                  message: user registered successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate user and issue tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: alice@example.com
+              password: SuperSecret123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensSuccessResponse'
+              example:
+                success: true
+                data:
+                  access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access.signature
+                  refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.signature
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token and issue new token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            example:
+              refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.signature
+      responses:
+        '200':
+          description: Tokens rotated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensSuccessResponse'
+              example:
+                success: true
+                data:
+                  access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new-access.signature
+                  refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new-refresh.signature
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke an active refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+            example:
+              refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.signature
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessageResponse'
+              example:
+                success: true
+                data:
+                  message: logged out
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/users/me:
+    get:
+      tags: [Users]
+      summary: Get authenticated user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeSuccessResponse'
+              example:
+                success: true
+                data:
+                  id: 7f7f3418-8f65-4e0e-9d24-0189ac9dd239
+                  email: alice@example.com
+                  role: user
+                  created_at: "2026-05-27T12:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Request validation or payload error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: invalid request body
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: unauthorized
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: user already exists
+    InternalServerError:
+      description: Internal server failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: internal server error
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+    LogoutRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    AuthTokens:
+      type: object
+      required: [access_token, refresh_token]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+
+    MeResponse:
+      type: object
+      required: [id, email, role, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          example: user
+        created_at:
+          type: string
+          format: date-time
+
+    ErrorBody:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+
+    SuccessMessage:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    SuccessMessageResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/SuccessMessage'
+
+    AuthTokensSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/AuthTokens'
+
+    MeSuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          $ref: '#/components/schemas/MeResponse'
